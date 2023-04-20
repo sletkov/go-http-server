@@ -1,6 +1,10 @@
-package store
+package sqlstore
 
-import "github.com/sletkov/go-http-server/internal/app/models"
+import (
+	"database/sql"
+	"github.com/sletkov/go-http-server/internal/app/models"
+	"github.com/sletkov/go-http-server/internal/app/store"
+)
 
 // UserRepository ...
 type UserRepository struct {
@@ -8,23 +12,23 @@ type UserRepository struct {
 }
 
 // Create ...
-func (r *UserRepository) Create(u *models.User) (*models.User, error) {
+func (r *UserRepository) Create(u *models.User) error {
 
 	if err := u.Validate(); err != nil {
-		return nil, err
+		return err
 	}
 
 	if err := u.BeforeCreate(); err != nil {
-		return nil, err
+		return err
 	}
 
 	if err := r.store.db.QueryRow("INSERT INTO users (email, encrypted_password) VALUES ($1, $2) RETURNING id",
 		u.Email,
 		u.EncryptedPassword,
 	).Scan(&u.Id); err != nil {
-		return nil, err
+		return err
 	}
-	return u, nil
+	return nil
 }
 
 // FindByEmail ...
@@ -39,6 +43,9 @@ func (r *UserRepository) FindByEmail(email string) (*models.User, error) {
 		&u.Email,
 		&u.EncryptedPassword,
 	); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, store.ErrRecordNotFound
+		}
 		return nil, err
 	}
 	return u, nil
